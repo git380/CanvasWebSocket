@@ -1,9 +1,12 @@
 import asyncio
-import websockets
 import json
+
+import websockets
 
 # クライアントの管理用のセット
 clients = set()
+# お絵かきデータの保存
+canvas_history = []
 
 
 async def echo(websocket):
@@ -12,17 +15,25 @@ async def echo(websocket):
     # 新しいクライアントのWebSocket接続をclientsセットに追加
     clients.add(websocket)
     try:
+
+        # 過去のチャット履歴を送信
+        for message in canvas_history:
+            await websocket.send(json.dumps(message))
+
         async for message in websocket:
             print(f'受信内容：{message}')
             data = json.loads(message)
             # クリアイベントの処理
             if data.get('type') == 'clear':
+                canvas_history.clear()
                 # すべての接続されたクライアントにブロードキャスト
                 for client in clients:
                     if client != websocket:
                         # 自分以外の全員に送る
                         await client.send(json.dumps(data))
             else:
+                # お絵かきデータの保存
+                canvas_history.append(data)
                 # クライアントからのお絵かきデータをすべてのクライアントにブロードキャスト
                 for client in clients:
                     if client != websocket:
@@ -32,6 +43,7 @@ async def echo(websocket):
         # クライアントが切断された場合、セットから削除
         clients.remove(websocket)
         print('接続が切断されました。')
+
 
 print('サーバー起動中...')
 
