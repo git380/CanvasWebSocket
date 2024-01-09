@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>Canvas</title>
+    <style>
+        body {
+            margin: 20px;
+        }
+
+        canvas {
+            border: 5px solid #ccc;
+            cursor: crosshair; /* カーソルを十字に設定 */
+        }
+
+        #save, #clear {
+            font-size: 120%;
+            width: 80px;
+            height: 50px;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            cursor: pointer;
+            display: inline-block;
+            border: 1px solid #000;
+            width: 50px;
+            height: 50px;
+        }
+    </style>
+</head>
+<body>
+<!-- 描画用のキャンバス -->
+<canvas id="canvas" width="500" height="400"></canvas>
+<!-- 色選択用のリスト -->
+<ul>
+    <li style="background-color:#000"></li>
+    <li style="background-color:#f00"></li>
+    <li style="background-color:#0f0"></li>
+    <li style="background-color:#00f"></li>
+    <li style="background-color:#ff0"></li>
+    <li style="background-color:#fff"></li>
+</ul>
+<!-- 保存と消去ボタン -->
+<div id="button">
+    <button id="save" onclick="saveCanvas()">保存</button>
+    <button id="clear" onclick="clearCanvas()">消去</button>
+</div>
+
+<script>
+    // WebSocketサーバへの接続を開始
+    const webSocket = new WebSocket("ws://localhost:8124");
+
+    // canvas要素の取得と2Dコンテキストの初期化
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+
+    // 初期描画色、描画状態フラグ、最後の座標を定義
+    let drawColor = '#000'; // 初期色は黒
+    let drawing = false; // 描画中かどうかのフラグ
+    let lastX = 0; // 最後のX座標
+    let lastY = 0; // 最後のY座標
+
+    // 色選択エリアの設定
+    document.querySelectorAll('li').forEach(function (elem) {
+        elem.addEventListener('click', function () {
+            drawColor = this.style.backgroundColor; // 選択された色を現在の描画色に設定
+        });
+    });
+
+    // キャンバス上でのmousedownイベントハンドラ
+    canvas.addEventListener('mousedown', function (e) {
+        lastX = e.offsetX; // クリックされたX座標
+        lastY = e.offsetY; // クリックされたY座標
+        drawing = true; // 描画開始
+    });
+
+    // キャンバスでのmousemoveイベントハンドラ
+    canvas.addEventListener('mousemove', function (e) {
+        if (!drawing) return; // 描画中でなければ何もしない
+        const currentX = e.offsetX;
+        const currentY = e.offsetY;
+        // 線を描画
+        drawLine(drawColor, lastX, lastY, currentX, currentY);
+        // 描画データをサーバに送信
+        webSocket.send(JSON.stringify({
+            'color': drawColor,
+            'fromX': lastX,
+            'fromY': lastY,
+            'toX': currentX,
+            'toY': currentY
+        }));
+        lastX = currentX; // 現在の座標を更新
+        lastY = currentY; // 現在の座標を更新
+    });
+
+    // キャンバスでのmouseupイベントハンドラ
+    canvas.addEventListener('mouseup', function () {
+        drawing = false; // 描画終了
+    });
+
+    // キャンバスでのmouseoutイベントハンドラ
+    canvas.addEventListener('mouseout', function () {
+        drawing = false; // 描画終了
+    });
+
+    // 線を描画する関数
+    function drawLine(color, fromX, fromY, toX, toY) {
+        context.strokeStyle = color; // 線の色を設定
+        context.lineWidth = 2; // 線の太さを設定
+        context.beginPath(); // 新しいパスを開始
+        context.moveTo(fromX, fromY); // パスの開始座標を設定
+        context.lineTo(toX, toY); // パスの終了座標を設定
+        context.stroke(); // 線を描画
+        context.closePath(); // パスを閉じる
+    }
+
+    // サーバからのメッセージを受信したときのイベントハンドラ
+    webSocket.onmessage = function (event) {
+        const msg = JSON.parse(event.data); // 受信データをJSONオブジェクトに変換
+        // クリアイベントの処理
+        if (msg.type === 'clear') context.clearRect(0, 0, canvas.width, canvas.height);
+        // 通常の描画データの処理
+        else drawLine(msg.color, msg.fromX, msg.fromY, msg.toX, msg.toY);
+    };
+
+    // キャンバスをクリアする関数
+    function clearCanvas() {
+        context.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
+        webSocket.send(JSON.stringify({'type': 'clear'})); // クリアイベントをサーバに送信
+    }
+
+    // キャンバスの内容を画像として保存する関数
+    function saveCanvas() {
+        const link = document.createElement('a'); // リンク要素を作成
+        link.href = canvas.toDataURL("image/png"); // キャンバスの内容を画像URLに変換
+        link.download = "canvas-image.png"; // ダウンロードファイル名を設定
+        link.click(); // リンクをクリックして画像をダウンロード
+    }
+</script>
+</body>
+</html>
