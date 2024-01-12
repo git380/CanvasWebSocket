@@ -35,7 +35,7 @@
 </head>
 <body>
 <!-- 描画用のキャンバス -->
-<canvas id="canvas" width="500" height="400"></canvas>
+<canvas id="canvas" width="800" height="600"></canvas>
 <!-- 色選択用のリスト -->
 <ul>
     <li style="background-color:#000"></li>
@@ -45,8 +45,9 @@
     <li style="background-color:#ff0"></li>
     <li style="background-color:#fff"></li>
 </ul>
-
-<input type="number" id="lineWidth" value="5" min="1" max="20">
+<!-- 太さの選択用のスライダー -->
+<label for="penThickness">ペンの太さ:</label>
+<input type="range" id="penThickness" value="5" min="1" max="20">
 <!-- 保存と消去ボタン -->
 <div id="button">
     <button id="save" onclick="saveCanvas()">保存</button>
@@ -84,13 +85,14 @@
     // キャンバスでのmousemoveイベントハンドラ
     canvas.addEventListener('mousemove', function (e) {
         if (!drawing) return; // 描画中でなければ何もしない
-        const lineWidth = document.getElementById("lineWidth").value;
+        // スライダーの要素を取得
+        const penThicknessInput = document.getElementById('penThickness').value;
         const currentX = e.offsetX;
         const currentY = e.offsetY;
         // 線を描画
-        drawLine(drawColor, lineWidth, lastX, lastY, currentX, currentY);
+        drawLine(drawColor, penThicknessInput, lastX, lastY, currentX, currentY);
         // 描画データをサーバに送信
-        webSocket.send(JSON.stringify([drawColor, lineWidth, lastX, lastY, currentX, currentY]));
+        webSocket.send(JSON.stringify([drawColor, penThicknessInput, lastX, lastY, currentX, currentY]));
         lastX = currentX; // 現在の座標を更新
         lastY = currentY; // 現在の座標を更新
     });
