@@ -15,23 +15,22 @@ async def echo(websocket):
     # 新しいクライアントのWebSocket接続をclientsセットに追加
     clients.add(websocket)
     try:
-
         # 過去のチャット履歴を送信
         for message in canvas_history:
             await websocket.send(json.dumps(message))
 
         async for message in websocket:
             print(f'受信内容：{message}')
-            data = json.loads(message)
             # クリアイベントの処理
-            if data.get('type') == 'clear':
+            if message == 'clear':
                 canvas_history.clear()
                 # すべての接続されたクライアントにブロードキャスト
                 for client in clients:
                     if client != websocket:
                         # 自分以外の全員に送る
-                        await client.send(json.dumps(data))
+                        await client.send(message)
             else:
+                data = json.loads(message)
                 # お絵かきデータの保存
                 canvas_history.append(data)
                 # クライアントからのお絵かきデータをすべてのクライアントにブロードキャスト

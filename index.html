@@ -45,6 +45,8 @@
     <li style="background-color:#ff0"></li>
     <li style="background-color:#fff"></li>
 </ul>
+
+<input type="number" id="lineWidth" value="5" min="1" max="20">
 <!-- 保存と消去ボタン -->
 <div id="button">
     <button id="save" onclick="saveCanvas()">保存</button>
@@ -82,18 +84,13 @@
     // キャンバスでのmousemoveイベントハンドラ
     canvas.addEventListener('mousemove', function (e) {
         if (!drawing) return; // 描画中でなければ何もしない
+        const lineWidth = document.getElementById("lineWidth").value;
         const currentX = e.offsetX;
         const currentY = e.offsetY;
         // 線を描画
-        drawLine(drawColor, lastX, lastY, currentX, currentY);
+        drawLine(drawColor, lineWidth, lastX, lastY, currentX, currentY);
         // 描画データをサーバに送信
-        webSocket.send(JSON.stringify({
-            'color': drawColor,
-            'fromX': lastX,
-            'fromY': lastY,
-            'toX': currentX,
-            'toY': currentY
-        }));
+        webSocket.send(JSON.stringify([drawColor, lineWidth, lastX, lastY, currentX, currentY]));
         lastX = currentX; // 現在の座標を更新
         lastY = currentY; // 現在の座標を更新
     });
@@ -109,9 +106,9 @@
     });
 
     // 線を描画する関数
-    function drawLine(color, fromX, fromY, toX, toY) {
+    function drawLine(color, lineWidth, fromX, fromY, toX, toY) {
         context.strokeStyle = color; // 線の色を設定
-        context.lineWidth = 2; // 線の太さを設定
+        context.lineWidth = lineWidth; // 線の太さを設定
         context.beginPath(); // 新しいパスを開始
         context.moveTo(fromX, fromY); // パスの開始座標を設定
         context.lineTo(toX, toY); // パスの終了座標を設定
@@ -121,17 +118,19 @@
 
     // サーバからのメッセージを受信したときのイベントハンドラ
     webSocket.onmessage = function (event) {
-        const msg = JSON.parse(event.data); // 受信データをJSONオブジェクトに変換
         // クリアイベントの処理
-        if (msg.type === 'clear') context.clearRect(0, 0, canvas.width, canvas.height);
+        if (event.data === 'clear') context.clearRect(0, 0, canvas.width, canvas.height);
         // 通常の描画データの処理
-        else drawLine(msg.color, msg.fromX, msg.fromY, msg.toX, msg.toY);
+        else {
+            const msg = JSON.parse(event.data); // 受信データをJSONオブジェクトに変換
+            drawLine(msg[0], msg[1], msg[2], msg[3], msg[4], msg[5]);
+        }
     };
 
     // キャンバスをクリアする関数
     function clearCanvas() {
         context.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
-        webSocket.send(JSON.stringify({'type': 'clear'})); // クリアイベントをサーバに送信
+        webSocket.send('clear'); // クリアイベントをサーバに送信
     }
 
     // キャンバスの内容を画像として保存する関数
